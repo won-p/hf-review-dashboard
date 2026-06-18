@@ -867,10 +867,12 @@ function openProdModal(p) {
 
   buildPhotoGrid('m-photos-low-wrap','m-photos-low',p.low_reviews||[],'low');
   buildRevList('m-low-revs',p.low_reviews||[],'low','저점수 리뷰 없음');
-  // 하단 전체 리뷰 섹션
-  var allRevsSorted = (p.all_reviews||[]).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  // 하단 전체 리뷰 섹션 — 작성순(오래된것부터), 저점수 섹션 표시 복원
+  var allRevsSorted = (p.all_reviews||[]).slice().sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+  var lowSectionEl = document.getElementById('m-section-low-hdr') && document.getElementById('m-section-low-hdr').closest('.m-section');
+  if (lowSectionEl) lowSectionEl.style.display = '';
   buildPhotoGrid('m-photos-hi-wrap','m-photos-hi',allRevsSorted,'all');
-  buildRevList('m-hi-revs',allRevsSorted,'hi','리뷰 없음');
+  buildRevListColored('m-hi-revs',allRevsSorted,'리뷰 없음');
   var allHdr = document.getElementById('m-section-all-hdr');
   if (allHdr) allHdr.textContent = '전체 리뷰 ('+allRevsSorted.length+'건)';
 
@@ -916,24 +918,24 @@ function selectWeekInModal(weekLabel, weekRange) {
   document.querySelectorAll('.wh-cell').forEach(function(c){c.style.outline='none';c.style.boxShadow='none';});
   document.querySelectorAll('.wh-cell[data-week="'+weekLabel+'"]').forEach(function(c){c.style.outline='2px solid #0071e3';c.style.boxShadow='0 0 0 3px rgba(0,113,227,0.2)';});
 
-  // 해당 주차의 저점수 리뷰 (하단 저점수 섹션)
+  // 해당 주차의 저점수 리뷰 (하단 저점수 섹션) — 없으면 섹션 숨김
   var filteredLow = (_currentProd.low_reviews||[]).filter(function(r){ return r.week === weekLabel; });
+  var lowSection = document.getElementById('m-section-low-hdr') && document.getElementById('m-section-low-hdr').closest('.m-section');
   var lowHdr = document.getElementById('m-section-low-hdr');
   if (filteredLow.length) {
+    if (lowSection) lowSection.style.display = '';
     buildPhotoGrid('m-photos-low-wrap','m-photos-low',filteredLow,'low');
     buildRevList('m-low-revs',filteredLow,'low','해당 주차 저점수 리뷰 없음');
     if (lowHdr) lowHdr.textContent = weekLabel+' 저점수 리뷰 이미지';
   } else {
-    buildPhotoGrid('m-photos-low-wrap','m-photos-low',_currentProd.low_reviews||[],'low');
-    buildRevList('m-low-revs',_currentProd.low_reviews||[],'low','저점수 리뷰 없음');
-    if (lowHdr) lowHdr.textContent = '전체 저점수 리뷰 이미지';
+    if (lowSection) lowSection.style.display = 'none';
   }
 
-  // 해당 주차 전체 리뷰 (하단 전체 리뷰 섹션)
+  // 해당 주차 전체 리뷰 (하단 전체 리뷰 섹션) — 작성순(오래된것부터)
   var allRevs = (_currentProd.all_reviews||[]).filter(function(r){ return r.week === weekLabel; });
-  allRevs.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  allRevs.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
   buildPhotoGrid('m-photos-hi-wrap','m-photos-hi',allRevs,'all');
-  buildRevList('m-hi-revs',allRevs,'hi','해당 주차 리뷰 없음');
+  buildRevListColored('m-hi-revs',allRevs,'해당 주차 리뷰 없음');
   var allHdr = document.getElementById('m-section-all-hdr');
   if (allHdr) allHdr.textContent = weekLabel+' ('+weekRange+') 리뷰 '+allRevs.length+'건';
 
@@ -964,12 +966,30 @@ function buildRevList(id,revs,cls,emptyMsg) {
     :'<div style="color:#6e6e73;font-size:12px;padding:8px 0;">'+emptyMsg+'</div>';
 }
 
+function buildRevListColored(id,revs,emptyMsg) {
+  var scoreStyle = {
+    1: {bg:'#fff5f5', border:'#e74c3c', color:'#dc2626'},
+    2: {bg:'#fff7ed', border:'#f97316', color:'#ea580c'},
+    3: {bg:'#fef9c3', border:'#ca8a04', color:'#ca8a04'},
+    4: {bg:'#eff6ff', border:'#60a5fa', color:'#2563eb'},
+    5: {bg:'#f0fdf4', border:'#3a7d44', color:'#16a34a'}
+  };
+  document.getElementById(id).innerHTML = revs.length
+    ? revs.map(function(r){
+        var s = scoreStyle[r.score] || {bg:'#f9f9f9', border:'#ccc', color:'#666'};
+        return '<div style="padding:10px 14px;border-radius:8px;margin-bottom:6px;font-size:11px;line-height:1.6;background:'+s.bg+';border-left:3px solid '+s.border+'">'
+          +'<div style="font-size:10px;color:'+s.color+';font-weight:700;margin-bottom:3px;">'+r.score+'점  '+r.date+(r.option?'  '+esc(r.option):'')+'</div>'
+          +esc(r.content||'내용 없음')+'</div>';
+      }).join('')
+    : '<div style="color:#6e6e73;font-size:11px;padding:8px 0;">'+emptyMsg+'</div>';
+}
+
 function closeProdModal(){
   document.getElementById('prodModal').classList.remove('open');
   document.querySelectorAll('.wh-cell').forEach(function(c){c.style.outline='none';c.style.boxShadow='none';});
   _currentProd = null;
   var lowHdr = document.getElementById('m-section-low-hdr');
-  if (lowHdr) lowHdr.textContent = '전체 저점수 리뷰 이미지';
+  if (lowHdr) { lowHdr.textContent = '전체 저점수 리뷰 이미지'; var ls = lowHdr.closest('.m-section'); if(ls) ls.style.display=''; }
   var allHdr = document.getElementById('m-section-all-hdr');
   if (allHdr) allHdr.textContent = '전체 리뷰';
 }
